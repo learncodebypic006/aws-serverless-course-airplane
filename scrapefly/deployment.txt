@@ -1,0 +1,172 @@
+
+# 建立基礎資源 - IAM Role for EC2
+- use case: EC2
+- policy: AdministratorAccess 
+- name: "parser-ec2-role"
+
+# 建立基礎資源 - IAM Role for Lambda
+- use case: Lambda 
+- policy: AWSLambdaBasicExecutionRole, AWSLambda_FullAccess, AmazonSNSFullAccess
+- name: "parser-lambda-role"
+
+# 建立基礎資源 - VPC
+- click 'VPC and more'
+- name: parser-vpc-001
+
+# 建立 S3 bucket 
+ - name: XXXXX
+
+# 建立基礎資源 - EC2
+- name: "parser-ec2"
+- ami: Amazon Linux 2023 
+- select no key pair
+- select VPC
+ - select public subnet
+ - enable public ip 
+- expand 'Advanced details'
+ - select iam role "parser-ec2-role"
+
+# 進入 EC2 - 建立 SSH Key with Github 
+ssh-keygen -t ed25519 -C "uopsdod@example.com"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub
+ - copy this to your github account's new SSH key
+ - github SSH key page: https://github.com/settings/keys
+
+# 進入 EC2 - 下載專案
+sudo yum install -y git 
+git clone git@github.com:uopsdod/XXXXX.git
+cd XXXXX/scrapefly
+
+====== 建立 Lambda Layer ===== 
+
+# 設定環境參數 
+YOUR_WORK_FOLDER=$(pwd)
+LAYER_NAME="parser_dependency"
+LAYER_ZIP_FILE="scrapefly_parser_layer.zip"
+
+# 建立 venv python 環境 
+sudo yum install -y python
+python3 -m venv venv
+source venv/bin/activate
+
+# 安裝 Dependency 
+pip install requests bs4
+
+# 建立 Lambda Layer 所需目錄架構
+mkdir -p layer/python
+
+# 複製 venv 檔案到指定目錄
+cp -r venv/lib/python3.9/site-packages/* layer/python/
+
+# 建立 Lambda Layer Zip 檔案
+cd layer
+zip -r ../$LAYER_ZIP_FILE .
+cd ..
+
+# 檢查 Lambda Layer Zip (optional)
+ls -lh 
+unzip -l $LAYER_ZIP_FILE
+
+# 上傳 S3
+S3_BUCKET="XXXXX"
+aws s3 cp ${LAYER_ZIP_FILE} "s3://${S3_BUCKET}/"
+
+# 建立 Lambda Layer 
+aws lambda publish-layer-version \
+    --layer-name $LAYER_NAME \
+    --description $LAYER_NAME \
+    --license-info "MIT" \
+    --zip-file fileb://$LAYER_ZIP_FILE \
+    --compatible-runtimes python3.12
+
+====== 建立 Lambda Function ===== 
+
+# 建立 Lambda Function 
+cat scrapefly_parser.py
+
+# 建立環境參數 
+YOUR_WORK_FOLDER=$(pwd)
+ZIP_FILE="scrapefly_parser.zip"
+FUNCTION_FILE="scrapefly_parser.py"
+
+# 建立 venv python 環境 
+sudo yum install -y python
+python -m venv venv
+ls
+source venv/bin/activate
+
+# 打包程式碼
+sudo zip -r ${ZIP_FILE} ${FUNCTION_FILE}
+ls -lh
+
+# 上傳 S3
+S3_BUCKET="XXXXX"
+aws s3 cp ${ZIP_FILE} "s3://${S3_BUCKET}/"
+
+# 建立 Lambda
+ - name: "scrapefly_parser"
+ - runtime: python
+ - architecture: x84_64 
+ - role: parser-lambda-role
+
+# 設定 Lambda 
+ - runtime > handler: scrapefly_parser.handler
+ - Configuration > General configuration > 15 min 
+
+# 部署 Lambda
+ - 上傳 .zip file via "upload from s3"
+ - Copy/Paste Object Url of the zip file 
+
+# 使用 Lambda Layer 
+[add layer to your lambda function]
+
+# 測試 Lambda 
+
+====== 建立 Wrapper Lambda ====== 
+# 建立 Lambda Handler (Python)  
+cat scrapefly_parser_wrapper.py
+
+# 建立環境參數 
+YOUR_WORK_FOLDER=$(pwd)
+ZIP_FILE="scrapefly_parser_wrapper.zip"
+FUNCTION_FILE="scrapefly_parser_wrapper.py"
+
+# 打包程式碼
+sudo zip -r ${ZIP_FILE} ${FUNCTION_FILE}
+ls -lh
+
+# 上傳 S3
+S3_BUCKET="XXXXX"
+aws s3 cp ${ZIP_FILE} "s3://${S3_BUCKET}/"
+
+# 建立 Lambda
+ - name: "scrapefly_parser_wrapper"
+ - runtime: python
+ - architecture: x84_64 
+ - role: parser-lambda-role
+
+# 設定 Lambda 
+ - runtime > handler: scrapefly_parser_wrapper.handler
+ - Configuration > General configuration > 15 min 
+
+# 部署 Lambda
+ - 上傳 .zip file via "upload from s3"
+ - Copy/Paste Object Url of the zip file 
+
+# 測試 Lambda 
+
+====== SNS Topic =====
+# 建立 SNS Topic 
+- name: "bag_available_notification"
+
+# 建立 SNS Topic Subscription 
+- protocol: Email 
+
+===== Event Scheduler =====
+# 建立 Event Scheduler 
+- rule name: "weekday-scheduler"
+- rule description: weekday-scheduler
+- cron: cron(*/5 13-16 ? * MON-FRI *)
+ - note: this has to be UTC time 
