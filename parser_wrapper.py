@@ -24,8 +24,8 @@ def handler(event, context):
     target_lambda_name = os.environ['TARGET_LAMBDA_NAME']
     
     # Create SQS client     
-    sqs = boto3.client('sqs')
-    queue_url = os.environ['SQS_URL_FOR_BAG_LINK_TO_CHECK']    
+    # sqs = boto3.client('sqs')
+    # queue_url = os.environ['SQS_URL_FOR_BAG_LINK_TO_CHECK']    
     
     # Get payloads from S3
     # payloads = get_payloads_from_s3(s3_client, bucket_name, file_name)
