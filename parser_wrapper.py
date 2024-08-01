@@ -10,6 +10,9 @@ def handler(event, context):
     # Initialize the S3 client
     s3_client = boto3.client('s3')
     
+    # Initialize the SNS client
+    sns_client = boto3.client('sns')
+    
     # Define the S3 bucket and file name
     bucket_name = os.environ['S3_BUCKET_NAME_PLAN_BAG_MAPPING']
     file_name = os.environ['S3_FILE_NAME_PLAN_BAG_MAPPING']    
@@ -31,6 +34,9 @@ def handler(event, context):
     # Get payload from testing
     payloads = get_payloads_for_testing()
     print("payloads from test: ", payloads)
+    
+    # Get the SNS topic ARN from environment variables
+    sns_topic_arn = os.environ['SNS_TOPIC_ARN']
     
     lowest_price_response = None
     lowest_price = float('inf')  # Initialize with a very high value    
@@ -54,13 +60,21 @@ def handler(event, context):
             lowest_price_response = response_payload        
     
     # next: send to sqs for further processing and to ensure the message is processed at least once 
-    sqs_payload = json.dumps(lowest_price_response)
-    sqs_response = sqs.send_message(
-        QueueUrl=queue_url,
-        MessageBody=sqs_payload
+    # sqs_payload = json.dumps(lowest_price_response)
+    # sqs_response = sqs.send_message(
+    #     QueueUrl=queue_url,
+    #     MessageBody=sqs_payload
+    # )
+    # print(f'sqs payload: {sqs_payload}')
+    # print(f'sqs response: {sqs_response}')
+    
+    # Send the lowest_price_response to SNS topic
+    sns_response = sns_client.publish(
+        TopicArn=sns_topic_arn,
+        Message=json.dumps(lowest_price_response)
     )
-    print(f'sqs payload: {sqs_payload}')
-    print(f'sqs response: {sqs_response}')
+    print(f'sns payload: {json.dumps(lowest_price_response)}')
+    print(f'sns response: {sns_response}')    
     
     return {
         'statusCode': 200,
