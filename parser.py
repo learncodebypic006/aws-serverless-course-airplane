@@ -29,7 +29,7 @@ def handler(event, context):
         target_url = body_json.get('bag_url')
         wix_plan_name = body_json.get('wix_plan_name')
     else:
-        # target_url = "XXXXX"
+        # target_url = "YourTargetWebsiteUrl"
         target_url = event["bag_url"]
         # wix_plan_name = event["wix_plan_name"] # TODO: next 
     

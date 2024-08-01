@@ -84,12 +84,12 @@ aws lambda publish-layer-version \
 ====== 建立 Lambda Function ===== 
 
 # 建立 Lambda Function 
-cat scrapefly_parser.py
+cat parser.py
 
 # 建立環境參數 
 YOUR_WORK_FOLDER=$(pwd)
 ZIP_FILE="scrapefly_parser.zip"
-FUNCTION_FILE="scrapefly_parser.py"
+FUNCTION_FILE="parser.py"
 
 # 建立 venv python 環境 
 sudo yum install -y python
@@ -126,12 +126,12 @@ aws s3 cp ${ZIP_FILE} "s3://${S3_BUCKET}/"
 
 ====== 建立 Wrapper Lambda ====== 
 # 建立 Lambda Handler (Python)  
-cat scrapefly_parser_wrapper.py
+cat parser_wrapper.py
 
 # 建立環境參數 
 YOUR_WORK_FOLDER=$(pwd)
 ZIP_FILE="scrapefly_parser_wrapper.zip"
-FUNCTION_FILE="scrapefly_parser_wrapper.py"
+FUNCTION_FILE="parser_wrapper.py"
 
 # 打包程式碼
 sudo zip -r ${ZIP_FILE} ${FUNCTION_FILE}
