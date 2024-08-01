@@ -3,6 +3,8 @@ import json
 from utils import send_bag_available_notification, is_add_to_cart_enabled, build_url, save_to_local_file, put_metric_data
 import boto3
 import os
+from bs4 import BeautifulSoup
+import random
 
 # Initialize SQS client
 sqs = boto3.client('sqs')
@@ -13,7 +15,7 @@ def handler(event, context):
     print("event: ", event)
     is_sqs_event = False
     bag_url = None
-    wix_plan_name = None
+    airplane_name = None
     if 'Records' in event and len(event['Records']) > 0:
         is_sqs_event = True
         # Extract the first record from the event
@@ -27,18 +29,32 @@ def handler(event, context):
         
         # Accessing fields from the body_json
         target_url = body_json.get('bag_url')
-        wix_plan_name = body_json.get('wix_plan_name')
+        airplane_name = body_json.get('airplane_name')
     else:
-        # target_url = "YourTargetWebsiteUrl"
-        target_url = event["bag_url"]
-        # wix_plan_name = event["wix_plan_name"] # TODO: next 
+        # target_url = "http://s3staticwebsitestack-beta-flightprices3rows1nyrhc7-bthuk0mombnd.s3-website-us-east-1.amazonaws.com/"
+        # airplane_name = "apple"
+        
+        # target_url = "http://s3staticwebsitestack-beta-flightprices5rows1nyrhcf-4pbw9oudj7s4.s3-website-us-east-1.amazonaws.com/"
+        # airplane_name = "banana"
+        
+        # target_url = ""
+        # airplane_name = "random"
+        
+        target_url = event["target_url"]
+        airplane_name = event["airplane_name"] 
     
     print("target_url: ", target_url)
-    print("wix_plan_name: ", wix_plan_name)
+    print("airplane_name: ", airplane_name)
     
     try: 
         is_debug = False
-        is_bag_page_avaialble, status_code = check_bag_and_send_notification(target_url, is_debug)
+        if airplane_name == "apple":
+            lowest_price = check_apple_airline_price(target_url)
+        elif airplane_name == "banana":
+            lowest_price = check_banana_airline_price(target_url)
+        else:
+            lowest_price = check_random_airline_price()
+        print(f"The lowest ticket price of ${airplane_name} is: ${lowest_price}")
     finally:
         # Delete the message from the queue after processing
         if is_sqs_event:
@@ -50,11 +66,80 @@ def handler(event, context):
             print('Message deleted from SQS queue.')
             
     return {
-        'statusCode': status_code,
         'body': {
-            "is_bag_page_avaialble": is_bag_page_avaialble
+            'airplane_name': airplane_name,
+            'lowest_price': lowest_price
         }
     }
+
+def check_random_airline_price():
+    try:
+        # Generate a random price between 300 and 600
+        random_price = random.randint(300, 600)
+        print(f"Random price generated: ${random_price}")
+
+        return random_price
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+    
+
+def check_banana_airline_price(url):
+    try:
+        # Fetch the webpage content
+        response = requests.get(url)
+        response.raise_for_status()  # Check for HTTP errors
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Find all price elements
+        price_elements = soup.find_all('div', class_='flight-price')
+        
+        # Extract prices as integers
+        prices = [int(price_element.text.replace('$', '')) for price_element in price_elements]
+
+        print(f"Prices found: {prices}")
+
+        # Return the lowest price
+        return min(prices)
+
+    except requests.RequestException as e:
+        print(f"HTTP error occurred: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+    
+def check_apple_airline_price(url):
+    try:
+        # Fetch the webpage content
+        response = requests.get(url)
+        response.raise_for_status()  # Check for HTTP errors
+
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Find all price cells in the table
+        price_cells = soup.find_all('td', text=lambda x: x and x.startswith('$'))
+        
+        # Extract prices as integers
+        prices = [int(cell.text.replace('$', '')) for cell in price_cells]
+
+        print(f"Prices found: {prices}")
+
+        # Return the lowest price
+        return min(prices)
+
+    except requests.RequestException as e:
+        print(f"HTTP error occurred: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None    
+    
 
 def check_bag_and_send_notification(url, is_debug=True):
     ERROR_TAG = "[ERROR]"
