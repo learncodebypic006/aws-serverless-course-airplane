@@ -35,23 +35,6 @@ def handler(event, context):
     lowest_price_response = None
     lowest_price = float('inf')  # Initialize with a very high value    
     for target_url, airplane_name in payloads.items():
-        # delay_sec = random.randint(1, 300) # expect to finish all in 5 minutes 
-        # # delay_sec = random.randint(1, 9) # testing only 
-        # sqs_payload = json.dumps({"bag_url": bag_link, "wix_plan_name": wix_plan_name})
-        # sqs_response = sqs.send_message(
-        #     QueueUrl=queue_url,
-        #     MessageBody=sqs_payload,
-        #     DelaySeconds=delay_sec
-        # )
-        # print(f'sqs payload: {sqs_payload}')
-        # print(f'sqs response: {sqs_response}')
-        
-        # # Collect the status of each invocation
-        # results.append({
-        #     'Payload': {"bag_url": bag_link, "wix_plan_name": wix_plan_name}
-        # })        
-        
-        
         print("parsing payload: ", {"target_url": target_url, "airplane_name": airplane_name})
         response = lambda_client.invoke(
             FunctionName=target_lambda_name,
@@ -59,7 +42,6 @@ def handler(event, context):
             Payload=json.dumps({"target_url": target_url, "airplane_name": airplane_name})
         )
         
-        # print("response: ", response)
         # Read and parse the response payload
         response_payload = json.loads(response['Payload'].read())
         body = response_payload.get('body', {})
@@ -72,6 +54,14 @@ def handler(event, context):
             lowest_price_response = response_payload        
     
     # next: send to sqs for further processing and to ensure the message is processed at least once 
+    sqs_payload = json.dumps(lowest_price_response)
+    sqs_response = sqs.send_message(
+        QueueUrl=queue_url,
+        MessageBody=sqs_payload
+    )
+    print(f'sqs payload: {sqs_payload}')
+    print(f'sqs response: {sqs_response}')
+    
     return {
         'statusCode': 200,
         'body': json.dumps({
@@ -81,8 +71,8 @@ def handler(event, context):
     
 def get_payloads_for_testing():
     return {
-        'http://s3staticwebsitestack-beta-flightprices3rows1nyrhc7-bthuk0mombnd.s3-website-us-east-1.amazonaws.com/': 'apple',
-        'http://s3staticwebsitestack-beta-flightprices5rows1nyrhcf-4pbw9oudj7s4.s3-website-us-east-1.amazonaws.com/': 'banana',
+        f'{os.environ['APPLE_WEBSITE_URL']}': 'apple',
+        f'{os.environ['BANANA_WEBSITE_URL']}': 'banana',
         'XXXXX': 'random'
     }
 
