@@ -13,58 +13,21 @@ sqs = boto3.client('sqs')
 def handler(event, context):
     print("handler starts")
     print("event: ", event)
-    is_sqs_event = False
-    bag_url = None
-    airplane_name = None
-    if 'Records' in event and len(event['Records']) > 0:
-        is_sqs_event = True
-        # Extract the first record from the event
-        record = event['Records'][0]
-        
-        # Get the body of the message
-        body = record['body']
-        
-        # Deserialize the body to a Python dictionary
-        body_json = json.loads(body)
-        
-        # Accessing fields from the body_json
-        target_url = body_json.get('bag_url')
-        airplane_name = body_json.get('airplane_name')
-    else:
-        # target_url = "http://s3staticwebsitestack-beta-flightprices3rows1nyrhc7-bthuk0mombnd.s3-website-us-east-1.amazonaws.com/"
-        # airplane_name = "apple"
-        
-        # target_url = "http://s3staticwebsitestack-beta-flightprices5rows1nyrhcf-4pbw9oudj7s4.s3-website-us-east-1.amazonaws.com/"
-        # airplane_name = "banana"
-        
-        # target_url = ""
-        # airplane_name = "random"
-        
-        target_url = event["target_url"]
-        airplane_name = event["airplane_name"] 
+    target_url = event["target_url"]
+    airplane_name = event["airplane_name"] 
     
     print("target_url: ", target_url)
     print("airplane_name: ", airplane_name)
     
-    try: 
-        is_debug = False
-        if airplane_name == "apple":
-            lowest_price = check_apple_airline_price(target_url)
-        elif airplane_name == "banana":
-            lowest_price = check_banana_airline_price(target_url)
-        else:
-            lowest_price = check_random_airline_price()
-        print(f"The lowest ticket price of ${airplane_name} is: ${lowest_price}")
-    finally:
-        # Delete the message from the queue after processing
-        if is_sqs_event:
-            queue_url = os.environ['SQS_URL_FOR_BAG_LINK_TO_CHECK']    
-            sqs.delete_message(
-                QueueUrl=queue_url,
-                ReceiptHandle=record['receiptHandle']
-            )
-            print('Message deleted from SQS queue.')
-            
+    is_debug = False
+    if airplane_name == "apple":
+        lowest_price = check_apple_airline_price(target_url)
+    elif airplane_name == "banana":
+        lowest_price = check_banana_airline_price(target_url)
+    else:
+        lowest_price = check_random_airline_price()
+    print(f"The lowest ticket price of ${airplane_name} is: ${lowest_price}")
+    
     return {
         'body': {
             'airplane_name': airplane_name,

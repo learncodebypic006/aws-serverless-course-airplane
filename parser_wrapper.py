@@ -27,14 +27,6 @@ def handler(event, context):
     # The name of the Lambda function to be called
     target_lambda_name = os.environ['TARGET_LAMBDA_NAME']
     
-    # Create SQS client     
-    # sqs = boto3.client('sqs')
-    # queue_url = os.environ['SQS_URL_FOR_BAG_LINK_TO_CHECK']    
-    
-    # Get payloads from S3
-    # payloads = get_payloads_from_s3(s3_client, bucket_name, file_name)
-    # print("payloads from s3: ", payloads)
-    
     # Get payload from testing
     payloads = get_payloads_for_testing()
     print("payloads from test: ", payloads)
@@ -63,15 +55,6 @@ def handler(event, context):
             lowest_price = lowest_price_current
             lowest_price_response = response_payload        
     
-    # next: send to sqs for further processing and to ensure the message is processed at least once 
-    # sqs_payload = json.dumps(lowest_price_response)
-    # sqs_response = sqs.send_message(
-    #     QueueUrl=queue_url,
-    #     MessageBody=sqs_payload
-    # )
-    # print(f'sqs payload: {sqs_payload}')
-    # print(f'sqs response: {sqs_response}')
-    
     # Send the lowest_price_response to SNS topic
     sns_response = sns_client.publish(
         TopicArn=sns_topic_arn,
@@ -83,7 +66,7 @@ def handler(event, context):
     # Put the lowest_price_response into DynamoDB
     put_item_to_dynamodb(lowest_price_response, dynamodb)
     
-    # Query 
+    # Query (for debugging)
     timestamp = datetime.utcnow()
     date_today = timestamp.strftime('%Y-%m-%d')  # Extract date part
     ddb_result = query_items_by_date(date_today, dynamodb)
