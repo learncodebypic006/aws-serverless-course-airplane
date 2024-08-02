@@ -39,7 +39,7 @@ def handler(event, context):
             </style>
         </head>
         <body>
-            <h2>Flight Prices on {date}</h2>
+            <h2>Cheapest Flight Prices from New York to Taipei on {date}</h2>
             <table>
                 <tr>
                     <th>Date</th>
