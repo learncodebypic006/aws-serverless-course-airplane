@@ -4,6 +4,7 @@ import time
 import random
 import os
 import csv
+from datetime import datetime
 
 
 def handler(event, context):
@@ -12,6 +13,9 @@ def handler(event, context):
     
     # Initialize the SNS client
     sns_client = boto3.client('sns')
+    
+    # Initialize the DynamoDB client
+    dynamodb = boto3.client('dynamodb')
     
     # Define the S3 bucket and file name
     bucket_name = os.environ['S3_BUCKET_NAME_PLAN_BAG_MAPPING']
@@ -75,6 +79,15 @@ def handler(event, context):
     )
     print(f'sns payload: {json.dumps(lowest_price_response)}')
     print(f'sns response: {sns_response}')    
+
+    # Put the lowest_price_response into DynamoDB
+    put_item_to_dynamodb(lowest_price_response, dynamodb)
+    
+    # Query 
+    timestamp = datetime.utcnow()
+    date_today = timestamp.strftime('%Y-%m-%d')  # Extract date part
+    ddb_result = query_items_by_date(date_today, dynamodb)
+    print(f'ddb_result: {ddb_result}')    
     
     return {
         'statusCode': 200,
@@ -110,21 +123,46 @@ def parse_csv_content(content):
     next(reader)  # Skip header row
     return {row[0]: row[1] for row in reader}
 
-def random_sleep(min_time_ms=0, max_time_ms=10000):
-    """
-    Sleeps for a random time between min_time_ms and max_time_ms milliseconds.
+def put_item_to_dynamodb(response, dynamodb):
+    table_name = os.environ['DDB_TABLE_NAME']
+    timestamp = datetime.utcnow()
+    date_str = timestamp.strftime('%Y-%m-%d')  # Extract date part
+    time_str = timestamp.strftime('%H-%M-%S')  # Extract time part
+    item = {
+        'date': {'S': date_str},
+        'time': {'S': time_str},
+        'airline': {'S': response['body']['airplane_name']},
+        'price': {'N': str(response['body']['lowest_price'])}
+    }
+    
+    try:
+        dynamodb.put_item(TableName=table_name, Item=item)
+        print('Item added to DynamoDB')
+    except Exception as e:
+        print(f"Error adding item to DynamoDB: {str(e)}")
 
-    :param min_time_ms: Minimum sleep time in milliseconds (default is 0)
-    :param max_time_ms: Maximum sleep time in milliseconds (default is 10000)
-    """
-    # Generate a random sleep time between min_time_ms and max_time_ms milliseconds
-    sleep_time_ms = random.uniform(min_time_ms, max_time_ms)
+def query_items_by_date(date, dynamodb):
+    table_name = os.environ['DDB_TABLE_NAME']
     
-    # Convert milliseconds to seconds
-    sleep_time_sec = sleep_time_ms / 1000.0
+    params = {
+        'TableName': table_name,
+        'KeyConditionExpression': '#date = :date',
+        'ExpressionAttributeNames': {
+            '#date': 'date'
+        },
+        'ExpressionAttributeValues': {
+            ':date': {'S': date}
+        }
+    }
     
-    # Log the sleep time (optional)
-    print(f"Sleeping for {sleep_time_ms:.2f} milliseconds ({sleep_time_sec:.2f} seconds)")
-    
-    # Sleep for the generated time in seconds
-    time.sleep(sleep_time_sec)
+    try:
+        response = dynamodb.query(**params)
+        return {
+            'statusCode': 200,
+            'body': json.dumps(response['Items'])
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f"Error querying items: {str(e)}")
+            }
